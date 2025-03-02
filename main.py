@@ -50,7 +50,6 @@ if __name__ == "__main__":
         'pidfile': '/tmp/gunicorn.pid',
         'keyfile': os.environ["KEY_FILE"],
         'certfile': os.environ["CERT_FILE"],
-        'ca_certs': os.environ["CA_CERTS_FILE"],
         'ssl_version': 'TLS',
         'workers': 6,
         'timeout': 600,
