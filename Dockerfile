@@ -1,13 +1,17 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 
-FROM python:latest
+FROM nvidia/cuda:12.8.0-base-ubuntu24.04
 
-WORKDIR /app
+# Install Python and dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt requirements.txt
 
-RUN pip3 install -r requirements.txt
+RUN pip3 install -r requirements.txt --break-system-packages
 
 COPY . .
 

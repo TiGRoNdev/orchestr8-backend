@@ -6,6 +6,7 @@ psutil
 setuptools
 gputil
 psycopg
+python-dotenv
 pyjwt
 pydantic
 six
