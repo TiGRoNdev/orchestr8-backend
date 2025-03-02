@@ -51,8 +51,6 @@ if __name__ == "__main__":
     options = {
         'bind': '%s:%s' % ('0.0.0.0', f'{os.environ["APP_PORT"]}'),
         'pidfile': '/tmp/gunicorn.pid',
-        'keyfile': os.environ["KEY_FILE"],
-        'certfile': os.environ["CERT_FILE"],
         'workers': 6,
         'timeout': 600,
         'worker_class': "uvicorn.workers.UvicornH11Worker",
