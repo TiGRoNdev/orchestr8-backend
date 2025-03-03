@@ -6,7 +6,7 @@ import json
 def get_gpu_info():
     # Get nodes with GPU capacity
     nodes = json.loads(subprocess.check_output(
-        "kubectl get nodes -o json", shell=True
+        "mkctl get nodes -o json", shell=True
     ))["items"]
 
     # Cluster-wide totals
@@ -30,7 +30,7 @@ def get_gpu_info():
             # Get allocated GPUs for this node
             node_allocated = 0
             pods = json.loads(subprocess.check_output(
-                f"kubectl get pods --all-namespaces --field-selector spec.nodeName={node_name} -o json",
+                f"mkctl get pods --all-namespaces --field-selector spec.nodeName={node_name} -o json",
                 shell=True
             ))["items"]
 
