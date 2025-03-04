@@ -154,9 +154,15 @@ async def create_pod(name='', container_image='', cpu='', memory='', gpu=0, stor
                                   {f'nvidia.com/gpu: {gpu}' if gpu > 0 else ''}
                               ports:
                               - containerPort: {port}
-                              {'nodeSelector:\n                hardware-type: gpu' if gpu > 0 else ''}
                               {f'''
-                                volumeMounts:
+                              nodeSelector:
+                                  hardware-type: gpu
+                                ''' 
+                                if gpu > 0 
+                                else ''
+                              }
+                              {f'''
+                              volumeMounts:
                                   - mountPath: "/"
                                     name: pv-storage
                                 '''
