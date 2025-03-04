@@ -72,16 +72,16 @@ async def create_volume(name='', capacity='', session_key=''):
         with open(storage_file_name, "w") as f:
             f.write(f"""
                 apiVersion: v1
-                  kind: PersistentVolumeClaim
-                  metadata:
+                kind: PersistentVolumeClaim
+                metadata:
                     name: {name_s}
-                  spec:
+                spec:
                     storageClassName: manual
                     accessModes:
-                      - ReadWriteOncePod
+                        - ReadWriteOncePod
                     resources:
-                      requests:
-                        storage: {capacity}
+                        requests:
+                            storage: {capacity}
             """)
 
         subprocess.run(f"microk8s kubectl apply -f {storage_file_name}", shell=True)
@@ -133,40 +133,36 @@ async def create_pod(name='', container_image='', cpu='', memory='', gpu=0, stor
         with open(pod_file_name, "w") as f:
             f.write(f"""
                 apiVersion: v1
-                  kind: Pod
-                  metadata:
+                kind: Pod
+                metadata:
                     name: {name_s}
-                  spec:
-                    {
-                     f'''
+                spec:{f'''
                       volumes:
                         - name: pv-storage
-                      persistentVolumeClaim:
-                        claimName: {storage.name}
+                          persistentVolumeClaim:
+                              claimName: {storage.name}
                       '''
                       if storage_id != 0
-                      else ''
-                    }
-                    containers:
-                    - name: {name}
-                      image: {container_image}
-                      resources:
-                        limits:
-                          cpu: {cpu}
-                          memory: {memory}
-                          {f'nvidia.com/gpu: {gpu}' if gpu > 0 else ''}
-                      ports:
-                      - containerPort: {port}
-                    {'nodeSelector:\n                hardware-type: gpu' if gpu > 0 else ''}
-                    {
-                      f'''
-                      volumeMounts:
-                        - mountPath: "/"
-                          name: pv-storage
-                      '''
-                      if storage_id != 0
-                      else ''
-                    }
+                      else ''}
+                      containers:
+                            - name: {name}
+                              image: {container_image}
+                              resources:
+                                limits:
+                                  cpu: {cpu}
+                                  memory: {memory}
+                                  {f'nvidia.com/gpu: {gpu}' if gpu > 0 else ''}
+                              ports:
+                              - containerPort: {port}
+                              {'nodeSelector:\n                hardware-type: gpu' if gpu > 0 else ''}
+                              {f'''
+                                volumeMounts:
+                                  - mountPath: "/"
+                                    name: pv-storage
+                                '''
+                                if storage_id != 0
+                                else ''
+                              }
             """)
 
         subprocess.run(f"microk8s kubectl apply -f {pod_file_name}", shell=True)
