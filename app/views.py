@@ -163,7 +163,7 @@ async def create_pod(name='', container_image='', cpu='', memory='', gpu=0, stor
                               }
                               {f'''
                               volumeMounts:
-                                  - mountPath: "/"
+                                  - mountPath: "/workspace"
                                     name: pv-storage
                                 '''
                                 if storage_id != 0
