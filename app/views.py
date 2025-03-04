@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 
+import subprocess
 import os
 import psutil
 import GPUtil
@@ -57,28 +58,33 @@ async def create_volume(name='', capacity='', session_key=''):
         if not bcrypt.checkpw(session_jwt['key'].encode(), user.session_key.encode()):
             return 403, "Invalid credentials."
 
-        volume_claim_yaml = f"""
-            apiVersion: v1
-              kind: PersistentVolumeClaim
-              metadata:
-                name: {name}
-              spec:
-                storageClassName: manual
-                accessModes:
-                  - ReadWriteOnce
-                resources:
-                  requests:
-                    storage: {capacity}
-        """
-
-        # todo: Логика по созданию volume
+        name_s = name.strip().replace(" ", "_")
 
         storage = Storage(
-            name=name,
+            name=name_s,
             capacity=capacity,
             user_id=user.id
         )
         session.add(storage)
+        await session.flush()
+
+        storage_file_name = os.environ['VOLUMES_META_PATH'] + f"/{name_s}.yaml"
+        with open(storage_file_name, "w") as f:
+            f.write(f"""
+                apiVersion: v1
+                  kind: PersistentVolumeClaim
+                  metadata:
+                    name: {name_s}
+                  spec:
+                    storageClassName: manual
+                    accessModes:
+                      - ReadWriteOncePod
+                    resources:
+                      requests:
+                        storage: {capacity}
+            """)
+
+        subprocess.run(f"microk8s kubectl apply -f {storage_file_name}", shell=True)
 
     return 200, "OK."
 
@@ -108,48 +114,10 @@ async def create_pod(name='', container_image='', cpu='', memory='', gpu=0, stor
             if store.id == storage_id:
                 storage = store
 
-        create_pod_yaml = f"""
-          apiVersion: v1
-            kind: Pod
-            metadata:
-              name: {name}
-            spec:
-              {
-               f'''
-                volumes:
-                  - name: pv-storage
-                persistentVolumeClaim:
-                  claimName: {storage.name}
-                '''
-                if storage_id != 0
-                else ''
-              }
-              containers:
-              - name: {name}
-                image: {container_image}
-                resources:
-                  limits:
-                    cpu: {cpu}
-                    memory: {memory}
-                    {f'nvidia.com/gpu: {gpu}' if gpu > 0 else ''}
-                ports:
-                - containerPort: {port}
-              {'nodeSelector:\n                hardware-type: gpu' if gpu > 0 else ''}
-              {
-                f'''
-                volumeMounts:
-                  - mountPath: "/"
-                    name: pv-storage
-                '''
-                if storage_id != 0
-                else ''
-              }
-        """
-
-        # todo: Логика по созданию pod
+        name_s = name.strip().replace(" ", "_")
 
         pod = Pod(
-            name=name,
+            name=name_s,
             container_image=container_image,
             cpu=cpu,
             memory=memory,
@@ -159,6 +127,49 @@ async def create_pod(name='', container_image='', cpu='', memory='', gpu=0, stor
             storage_id=storage_id
         )
         session.add(pod)
+        await session.flush()
+
+        pod_file_name = os.environ['PODS_META_PATH'] + f"/{name_s}.yaml"
+        with open(pod_file_name, "w") as f:
+            f.write(f"""
+                apiVersion: v1
+                  kind: Pod
+                  metadata:
+                    name: {name_s}
+                  spec:
+                    {
+                     f'''
+                      volumes:
+                        - name: pv-storage
+                      persistentVolumeClaim:
+                        claimName: {storage.name}
+                      '''
+                      if storage_id != 0
+                      else ''
+                    }
+                    containers:
+                    - name: {name}
+                      image: {container_image}
+                      resources:
+                        limits:
+                          cpu: {cpu}
+                          memory: {memory}
+                          {f'nvidia.com/gpu: {gpu}' if gpu > 0 else ''}
+                      ports:
+                      - containerPort: {port}
+                    {'nodeSelector:\n                hardware-type: gpu' if gpu > 0 else ''}
+                    {
+                      f'''
+                      volumeMounts:
+                        - mountPath: "/"
+                          name: pv-storage
+                      '''
+                      if storage_id != 0
+                      else ''
+                    }
+            """)
+
+        subprocess.run(f"microk8s kubectl apply -f {pod_file_name}", shell=True)
 
     return 200, "OK."
 
