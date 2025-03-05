@@ -67,3 +67,46 @@ class Pod(SQLModel, table=True):
             'gpu': self.gpu,
             'storage_id': self.storage_id
         }
+
+
+class ReservedPort(SQLModel, table=True):
+    __tablename__ = "reserved_port"
+    __table_args__ = (UniqueConstraint("external_port"),)
+
+    id: int | None = Field(None, primary_key=True)
+    port: int
+    external_port: int
+
+    # keys
+    user_id: int = Field(index=True, foreign_key="user.id")
+    pod_id: int = Field(index=True, foreign_key="pod.id")
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'port': self.port,
+            'external_port': self.external_port
+        }
+
+
+class PodEnv(SQLModel, table=True):
+    __tablename__ = "pod_env"
+
+    id: int | None = Field(None, primary_key=True)
+    name: str
+    value: str
+
+    # keys
+    user_id: int = Field(index=True, foreign_key="user.id")
+    pod_id: int = Field(index=True, foreign_key="pod.id")
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'value': self.value
+        }
+
+
+
+

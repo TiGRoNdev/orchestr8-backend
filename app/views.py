@@ -3,22 +3,25 @@
 
 import subprocess
 import os
+import re
 import psutil
 import GPUtil
 
+import asyncio
 import aiohttp
 import random
 import string
 import logging
 
+from fastapi import WebSocket
 from tenacity import retry, stop_after_attempt, wait_exponential
 import bcrypt
 import jwt
 from sqlalchemy import select, func
 
 from app.db import get_session
-from app.core import get_gpu_info
-from app.models import User, Storage, Pod
+from app.core import get_gpu_info, create_pod_yaml
+from app.models import User, Storage, Pod, ReservedPort, PodEnv
 
 
 @retry(reraise=True, stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=0.2, max=3))
@@ -129,47 +132,16 @@ async def create_pod(name='', container_image='', cpu='', memory='', gpu=0, stor
         session.add(pod)
         await session.flush()
 
-        pod_file_name = os.environ['PODS_META_PATH'] + f"/{name_s}.yaml"
-        with open(pod_file_name, "w") as f:
-            f.write(f"""
-                apiVersion: v1
-                kind: Pod
-                metadata:
-                    name: {name_s}
-                spec:{f'''
-                      volumes:
-                        - name: pv-storage
-                          persistentVolumeClaim:
-                              claimName: {storage.name}
-                      '''
-                      if storage_id != 0
-                      else ''}
-                      containers:
-                            - name: {name}
-                              image: {container_image}
-                              resources:
-                                limits:
-                                  cpu: {cpu}
-                                  memory: {memory}
-                                  {f'nvidia.com/gpu: {gpu}' if gpu > 0 else ''}
-                              ports:
-                              - containerPort: {port}
-                              {f'''
-                              nodeSelector:
-                                  hardware-type: gpu
-                                ''' 
-                                if gpu > 0 
-                                else ''
-                              }
-                              {f'''
-                              volumeMounts:
-                                  - mountPath: "/workspace"
-                                    name: pv-storage
-                                '''
-                                if storage_id != 0
-                                else ''
-                              }
-            """)
+        pod_file_name = create_pod_yaml(
+            pod_name=name_s,
+            storage_id=storage_id,
+            container_image=container_image,
+            storage_name=storage.name,
+            cpu=cpu,
+            memory=memory,
+            gpu=gpu,
+            port=port
+        )
 
         subprocess.run(f"microk8s kubectl apply -f {pod_file_name}", shell=True)
 
@@ -320,3 +292,259 @@ async def delete_user(user_id=0, session_key=''):
     return 200, "Done."
 
 
+async def delete_pod(pod_id=0, session_key=''):
+    async with get_session() as session:
+        session_jwt = jwt.decode(session_key, os.environ['SECRET_KEY'], algorithms=["HS256"])
+        user = (await session.execute(select(User).where(User.id == session_jwt['id']))).scalar()
+        if not bcrypt.checkpw(session_jwt['key'].encode(), user.session_key.encode()):
+            return 403, "Invalid credentials."
+
+        pods = (await session.execute(select(Pod).where(Pod.user_id == session_jwt['id']))).scalars()
+        if not pod_id in [i.id for i in pods]:
+            return 403, "Invalid credentials."
+
+        pod = [i for i in pods if i.id == pod_id][0]
+
+        reserved_ports = (await session.execute(select(ReservedPort).where(
+            ReservedPort.user_id == session_jwt['id'],
+            ReservedPort.pod_id == pod.id
+        ))).scalars()
+        for reserved_port in reserved_ports:
+            await session.delete(reserved_port)
+            subprocess.run(f"microk8s kubectl delete svc {pod.name}-{reserved_port.port} -n default", shell=True)
+
+        regex = re.compile(f"{pod.name}.*")
+        pod_file_names = [
+            i
+            for i in os.listdir(os.environ['PODS_META_PATH'])
+            if re.match(regex, i)
+        ]
+        for pod_file_name in pod_file_names:
+            os.remove(pod_file_name)
+
+        await session.delete(pod)
+
+        subprocess.run(f"microk8s kubectl delete pod {pod.name} -n default", shell=True)
+
+    return 200, "Done."
+
+
+async def add_exposed_port_to_pod(pod_id=0, port=0, session_key=''):
+    async with get_session() as session:
+        session_jwt = jwt.decode(session_key, os.environ['SECRET_KEY'], algorithms=["HS256"])
+        user = (await session.execute(select(User).where(User.id == session_jwt['id']))).scalar()
+        if not bcrypt.checkpw(session_jwt['key'].encode(), user.session_key.encode()):
+            return 403, "Invalid credentials."
+
+        pods = (await session.execute(select(Pod).where(Pod.user_id == session_jwt['id']))).scalars()
+        if not pod_id in [i.id for i in pods]:
+            return 403, "Invalid credentials."
+
+        pod = [i for i in pods if i.id == pod_id][0]
+        reserved_ports = (await session.execute(select(ReservedPort).where(
+            ReservedPort.user_id == session_jwt['id'],
+            ReservedPort.pod_id == pod.id
+        ))).scalars()
+        if port in [i.port for i in reserved_ports]:
+            return 400, "Invalid Request."
+
+        port_to_reserve = (await session.execute(select(func.max(ReservedPort.external_port)))).scalar()
+        if not port_to_reserve:
+            port_to_reserve = 20001
+        else:
+            port_to_reserve += 1
+
+        reserved_port = ReservedPort(
+            port=port,
+            external_port=port_to_reserve,
+            user_id=user.id,
+            pod_id=pod.id
+        )
+        session.add(reserved_port)
+        await session.flush()
+
+        service_yaml = f"""
+            apiVersion: v1
+            kind: Service
+            metadata:
+              name: {pod.name}-{reserved_port.port}
+            spec:
+              type: NodePort
+              ports:
+                - port: {reserved_port.port}
+                  targetPort: {reserved_port.port}
+                  nodePort: {reserved_port.external_port}
+              selector:
+                app: {pod.name}
+        """
+
+        pod_file_name = os.environ['PODS_META_PATH'] + f"/{pod.name}-{reserved_port.port}.yaml"
+        with open(pod_file_name, "w") as f:
+            f.write(service_yaml)
+
+        subprocess.run(f"microk8s kubectl apply -f {pod_file_name}", shell=True)
+
+    return 200, "Done."
+
+
+async def get_pod_envs(pod_id=0, session_key=''):
+    async with get_session() as session:
+        session_jwt = jwt.decode(session_key, os.environ['SECRET_KEY'], algorithms=["HS256"])
+        user = (await session.execute(select(User).where(User.id == session_jwt['id']))).scalar()
+        if not bcrypt.checkpw(session_jwt['key'].encode(), user.session_key.encode()):
+            return 403, "Invalid credentials."
+
+        pods = (await session.execute(select(Pod).where(Pod.user_id == session_jwt['id']))).scalars()
+        if not pod_id in [i.id for i in pods]:
+            return 403, "Invalid credentials."
+
+        pod = [i for i in pods if i.id == pod_id][0]
+
+        pod_envs = (await session.execute(select(PodEnv).where(
+            PodEnv.user_id == session_jwt['id'],
+            PodEnv.pod_id == pod.id
+        ))).scalars()
+
+    return 200, pod_envs
+
+
+async def add_pod_env(pod_id=0, name='', value='', session_key=''):
+    async with get_session() as session:
+        session_jwt = jwt.decode(session_key, os.environ['SECRET_KEY'], algorithms=["HS256"])
+        user = (await session.execute(select(User).where(User.id == session_jwt['id']))).scalar()
+        if not bcrypt.checkpw(session_jwt['key'].encode(), user.session_key.encode()):
+            return 403, "Invalid credentials."
+
+        pods = (await session.execute(select(Pod).where(Pod.user_id == session_jwt['id']))).scalars()
+        if not pod_id in [i.id for i in pods]:
+            return 403, "Invalid credentials."
+
+        pod = [i for i in pods if i.id == pod_id][0]
+        pod_env = PodEnv(
+            name=name,
+            value=value,
+            user_id=user.id,
+            pod_id=pod.id
+        )
+        session.add(pod_env)
+        await session.flush()
+
+    return 200, "Done."
+
+
+async def delete_volume(volume_id=0, session_key=''):
+    async with get_session() as session:
+        session_jwt = jwt.decode(session_key, os.environ['SECRET_KEY'], algorithms=["HS256"])
+        user = (await session.execute(select(User).where(User.id == session_jwt['id']))).scalar()
+        if not bcrypt.checkpw(session_jwt['key'].encode(), user.session_key.encode()):
+            return 403, "Invalid credentials."
+
+        volumes = (await session.execute(select(Storage).where(Storage.user_id == session_jwt['id']))).scalars()
+        if not volume_id in [i.id for i in volumes]:
+            return 403, "Invalid credentials."
+
+        volume = [i for i in volumes if i.id == volume_id][0]
+
+        volume_file_name = os.environ['VOLUME_META_PATH'] + f"/{volume.name}.yaml"
+        os.remove(volume_file_name)
+
+        await session.delete(volume)
+
+        subprocess.run(f"microk8s kubectl delete pvc {volume.name}", shell=True)
+
+    return 200, "Done."
+
+
+async def recreate_pod(pod_id=0, session_key=''):
+    async with get_session() as session:
+        session_jwt = jwt.decode(session_key, os.environ['SECRET_KEY'], algorithms=["HS256"])
+        user = (await session.execute(select(User).where(User.id == session_jwt['id']))).scalar()
+        if not bcrypt.checkpw(session_jwt['key'].encode(), user.session_key.encode()):
+            return 403, "Invalid credentials."
+
+        pods = (await session.execute(select(Pod).where(Pod.user_id == session_jwt['id']))).scalars()
+        if not pod_id in [i.id for i in pods]:
+            return 403, "Invalid credentials."
+
+        pod = [i for i in pods if i.id == pod_id][0]
+        pod_envs = (await session.execute(select(PodEnv).where(
+            PodEnv.user_id == session_jwt['id'],
+            PodEnv.pod_id == pod.id
+        ))).scalars()
+        if pod_envs:
+            pod_envs = [pod_env.to_dict() for pod_env in pod_envs]
+        if pod.storage_id != 0:
+            storage = (await session.execute(select(Storage).where(
+                Storage.user_id == session_jwt['id'],
+                Storage.id == pod.storage_id
+            ))).scalars()
+            storage = storage[0] if storage else None
+
+        subprocess.run(f"microk8s kubectl delete pod {pod.name} -n default", shell=True)
+
+        pod_file_name = create_pod_yaml(
+            pod_name=pod.name,
+            storage_id=storage.id,
+            container_image=pod.container_image,
+            storage_name=storage.name,
+            cpu=pod.cpu,
+            memory=pod.memory,
+            gpu=pod.gpu,
+            port=pod.port,
+            env=pod_envs if pod_envs else []
+        )
+
+        subprocess.run(f"microk8s kubectl apply -f {pod_file_name}", shell=True)
+
+    return 200, "Done."
+
+
+async def get_pod_logs_realtime(ws: WebSocket, pod_id=0):
+    async with get_session() as session:
+        pods = (await session.execute(select(Pod).where(Pod.id == pod_id))).scalars()
+        pod = [i for i in pods if i.id == pod_id][0]
+
+    command = [
+        "microk8s kubectl",
+        "logs",
+        "-n default",
+        "-f",
+        pod.name
+    ]
+
+    process = await asyncio.create_subprocess_exec(
+        *command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+
+    try:
+        while True:
+            line = await process.stdout.readline()
+            if not line:
+                break
+            await ws.send_text(line.decode().strip())
+
+    except Exception as e:
+        await ws.close(code=1011, reason=str(e))
+    finally:
+        if process.returncode is None:
+            process.terminate()
+            try:
+                await asyncio.wait_for(process.wait(), timeout=5)
+            except asyncio.TimeoutError:
+                process.kill()
+
+
+async def auth_ws(session_key, pod_id=0):
+    async with get_session() as session:
+        session_jwt = jwt.decode(session_key, os.environ['SECRET_KEY'], algorithms=["HS256"])
+        user = (await session.execute(select(User).where(User.id == session_jwt['id']))).scalar()
+        if not bcrypt.checkpw(session_jwt['key'].encode(), user.session_key.encode()):
+            return False
+
+        pods = (await session.execute(select(Pod).where(Pod.user_id == session_jwt['id']))).scalars()
+        if not pod_id in [i.id for i in pods]:
+            return False
+
+    return True

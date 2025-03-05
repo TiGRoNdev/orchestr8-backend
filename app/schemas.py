@@ -13,6 +13,15 @@ class Pod(BaseModel):
     port: int
     storage_id: int
 
+class PodPort(BaseModel):
+    port: int
+    pod_id: int
+
+class PodEnv(BaseModel):
+    pod_id: int
+    name: str
+    value: str
+
 class Storage(BaseModel):
     name: str
     capacity: str
@@ -21,6 +30,6 @@ class User(BaseModel):
     username: str
     password: str
 
-class UserId(BaseModel):
+class Id(BaseModel):
     id: int
 

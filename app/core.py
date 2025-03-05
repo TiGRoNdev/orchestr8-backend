@@ -3,6 +3,8 @@
 
 import subprocess
 import json
+import os
+
 
 def get_gpu_info():
     # Get nodes with GPU capacity
@@ -60,3 +62,65 @@ def get_gpu_info():
         },
         "nodes": node_info
     }
+
+
+def get_pod_info(pod_name):
+    return json.loads(subprocess.check_output(
+        f"microk8s kubectl get pod {pod_name} -n default -o json", shell=True
+    ))
+
+
+def create_pod_yaml(pod_name='', storage_id=0, container_image='', storage_name='', cpu=0, memory=0, gpu=0, port=0, env=[]):
+    pod_file_name = os.environ['PODS_META_PATH'] + f"/{pod_name}.yaml"
+    with open(pod_file_name, "w") as f:
+        f.write(f"""
+            apiVersion: v1
+            kind: Pod
+            metadata:
+                name: {pod_name}
+            spec:{f'''
+                  volumes:
+                    - name: pv-storage
+                      persistentVolumeClaim:
+                          claimName: {storage_name}
+                  '''
+                  if storage_id != 0
+                  else ''}
+                  containers:
+                        - name: {pod_name}
+                          image: {container_image}
+                          resources:
+                            limits:
+                              cpu: {cpu}
+                              memory: {memory}
+                              {f'nvidia.com/gpu: {gpu}' if gpu > 0 else ''}
+                          ports:
+                          - containerPort: {port}
+                          {f'''
+                          nodeSelector:
+                              hardware-type: gpu
+                            '''
+                          if gpu > 0
+                          else ''
+                          }
+                          {f'''
+                          volumeMounts:
+                              - mountPath: "/workspace"
+                                name: pv-storage
+                            '''
+                          if storage_id != 0
+                          else ''
+                          }
+                          {'\n'.join([f'''
+                          env:
+                              - name: {e['name']}
+                                value: {e['value']}
+                            ''' for e in env])
+                          if env 
+                          else ''
+                          }
+        """)
+
+    return pod_file_name
+
+
