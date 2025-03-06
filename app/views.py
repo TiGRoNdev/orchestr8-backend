@@ -329,6 +329,27 @@ async def delete_pod(pod_id=0, session_key=''):
     return 200, "Done."
 
 
+async def get_pod_ports(pod_id=0, session_key=''):
+    async with get_session() as session:
+        session_jwt = jwt.decode(session_key, os.environ['SECRET_KEY'], algorithms=["HS256"])
+        user = (await session.execute(select(User).where(User.id == session_jwt['id']))).scalar()
+        if not bcrypt.checkpw(session_jwt['key'].encode(), user.session_key.encode()):
+            return 403, "Invalid credentials."
+
+        pods = (await session.execute(select(Pod).where(Pod.user_id == session_jwt['id']))).scalars()
+        if not pod_id in [i.id for i in pods]:
+            return 403, "Invalid credentials."
+
+        pod = [i for i in pods if i.id == pod_id][0]
+
+        pod_ports = (await session.execute(select(ReservedPort).where(
+            ReservedPort.user_id == session_jwt['id'],
+            ReservedPort.pod_id == pod.id
+        ))).scalars()
+
+    return 200, pod_ports
+
+
 async def add_exposed_port_to_pod(pod_id=0, port=0, session_key=''):
     async with get_session() as session:
         session_jwt = jwt.decode(session_key, os.environ['SECRET_KEY'], algorithms=["HS256"])
@@ -387,6 +408,37 @@ async def add_exposed_port_to_pod(pod_id=0, port=0, session_key=''):
     return 200, "Done."
 
 
+async def delete_exposed_port(pod_id=0, port_id=0, session_key=''):
+    async with get_session() as session:
+        session_jwt = jwt.decode(session_key, os.environ['SECRET_KEY'], algorithms=["HS256"])
+        user = (await session.execute(select(User).where(User.id == session_jwt['id']))).scalar()
+        if not bcrypt.checkpw(session_jwt['key'].encode(), user.session_key.encode()):
+            return 403, "Invalid credentials."
+
+        pods = (await session.execute(select(Pod).where(Pod.user_id == session_jwt['id']))).scalars()
+        pods = [i for i in pods]
+        if not pod_id in [i.id for i in pods]:
+            return 403, "Invalid credentials."
+
+        pod = [i for i in pods if i.id == pod_id][0]
+
+        reserved_ports = (await session.execute(select(ReservedPort).where(ReservedPort.user_id == session_jwt['id']))).scalars()
+        reserved_ports = [i for i in reserved_ports]
+        if not port_id in [i.id for i in reserved_ports]:
+            return 403, "Invalid credentials."
+
+        reserved_port = [i for i in reserved_ports if i.id == reserved_ports][0]
+
+        reserved_port_file_name = os.environ['PODS_META_PATH'] + f"/{pod.name}-{reserved_port.port}.yaml"
+        os.remove(reserved_port_file_name)
+
+        await session.delete(reserved_port)
+
+        subprocess.run(f"microk8s kubectl delete svc {pod.name}-{reserved_port.port} -n default", shell=True)
+
+    return 200, "Done."
+
+
 async def get_pod_envs(pod_id=0, session_key=''):
     async with get_session() as session:
         session_jwt = jwt.decode(session_key, os.environ['SECRET_KEY'], algorithms=["HS256"])
@@ -428,6 +480,29 @@ async def add_pod_env(pod_id=0, name='', value='', session_key=''):
         )
         session.add(pod_env)
         await session.flush()
+
+    return 200, "Done."
+
+
+async def delete_pod_env(pod_id=0, env_id=0, session_key=''):
+    async with get_session() as session:
+        session_jwt = jwt.decode(session_key, os.environ['SECRET_KEY'], algorithms=["HS256"])
+        user = (await session.execute(select(User).where(User.id == session_jwt['id']))).scalar()
+        if not bcrypt.checkpw(session_jwt['key'].encode(), user.session_key.encode()):
+            return 403, "Invalid credentials."
+
+        pods = (await session.execute(select(Pod).where(Pod.user_id == session_jwt['id']))).scalars()
+        pods = [i for i in pods]
+        if not pod_id in [i.id for i in pods]:
+            return 403, "Invalid credentials."
+
+        envs = (await session.execute(select(PodEnv).where(PodEnv.user_id == session_jwt['id']))).scalars()
+        envs = [i for i in envs]
+        if not env_id in [i.id for i in envs]:
+            return 403, "Invalid credentials."
+
+        env = [i for i in envs if i.id == envs][0]
+        await session.delete(env)
 
     return 200, "Done."
 

@@ -23,9 +23,12 @@ from app.views import (
     delete_user,
     delete_pod,
     delete_volume,
+    get_pod_ports,
     add_exposed_port_to_pod,
+    delete_exposed_port,
     get_pod_envs,
     add_pod_env,
+    delete_pod_env,
     recreate_pod,
     get_pod_logs_realtime,
     auth_ws
@@ -78,9 +81,24 @@ async def delete_pod_route(item: Id, request: Request):
     return Response(res, status_code=status)
 
 
+@router.get("/api/pod/{pod_id}/port")
+async def get_pod_ports_route(request: Request, pod_id: int):
+    status, res = await get_pod_ports(pod_id=pod_id, session_key=request.headers.get("Authorization"))
+    if status == 200:
+        return Response(json.dumps([i.to_dict() for i in res]), status_code=status)
+    else:
+        return Response(res, status_code=status)
+
+
 @router.post("/api/pod/port")
 async def add_port_route(item: PodPort, request: Request):
     status, res = await add_exposed_port_to_pod(pod_id=item.pod_id, port=item.port, session_key=request.headers.get("Authorization"))
+    return Response(res, status_code=status)
+
+
+@router.delete("/api/pod/{pod_id}/port/{port_id}")
+async def delete_pod_port_route(request: Request, pod_id: int, port_id: int):
+    status, res = await delete_exposed_port(pod_id=pod_id, port_id=port_id, session_key=request.headers.get("Authorization"))
     return Response(res, status_code=status)
 
 
@@ -162,6 +180,12 @@ async def get_pod_envs_route(request: Request, pod_id: int):
 @router.post("/api/pod/env")
 async def add_pod_env_route(item: PodEnv, request: Request):
     status, res = await add_pod_env(pod_id=item.pod_id, name=item.name, value=item.value, session_key=request.headers.get("Authorization"))
+    return Response(res, status_code=status)
+
+
+@router.delete("/api/pod/{pod_id}/env/{env_id}")
+async def delete_pod_env_route(request: Request, pod_id: int, env_id: int):
+    status, res = await delete_pod_env(pod_id=pod_id, env_id=env_id, session_key=request.headers.get("Authorization"))
     return Response(res, status_code=status)
 
 
