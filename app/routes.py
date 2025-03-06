@@ -171,7 +171,7 @@ async def recreate_pod_route(request: Request, pod_id: int):
     return Response(res, status_code=status)
 
 
-@router.websocket("/ws/logs/{pod_id}")
+@router.websocket("/api/ws/logs/{pod_id}")
 async def get_logs_realtime(websocket: WebSocket, pod_id: int):
     await websocket.accept()
     try:
