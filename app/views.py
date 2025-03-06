@@ -104,7 +104,7 @@ async def get_volumes(session_key=''):
     return 200, storages
 
 
-async def create_pod(name='', container_image='', cpu='', memory='', gpu=0, storage_id=0, port=80, session_key=''):
+async def create_pod(name='', container_image='', cpu='', memory='', mount_path='/workspace', gpu=0, storage_id=0, port=80, session_key=''):
     session_jwt = jwt.decode(session_key, os.environ['SECRET_KEY'], algorithms=["HS256"])
     async with get_session() as session:
         user = (await session.execute(select(User).where(User.id == session_jwt['id']))).scalar()
@@ -127,7 +127,8 @@ async def create_pod(name='', container_image='', cpu='', memory='', gpu=0, stor
             gpu=gpu,
             port=port,
             user_id=user.id,
-            storage_id=storage_id if storage_id != 0 else None
+            storage_id=storage_id if storage_id != 0 else None,
+            mount_path=mount_path
         )
         session.add(pod)
         await session.flush()
@@ -140,7 +141,8 @@ async def create_pod(name='', container_image='', cpu='', memory='', gpu=0, stor
             cpu=cpu,
             memory=memory,
             gpu=gpu,
-            port=port
+            port=port,
+            mount_path=mount_path
         )
 
         subprocess.run(f"microk8s kubectl apply -f {pod_file_name}", shell=True)
@@ -585,7 +587,8 @@ async def recreate_pod(pod_id=0, session_key=''):
             memory=pod.memory,
             gpu=pod.gpu,
             port=pod.port,
-            env=pod_envs if pod_envs else []
+            env=pod_envs if pod_envs else [],
+            mount_path=pod.mount_path
         )
 
         subprocess.run(f"microk8s kubectl apply -f {pod_file_name}", shell=True)

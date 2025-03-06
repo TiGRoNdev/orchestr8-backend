@@ -53,6 +53,7 @@ class Pod(SQLModel, table=True):
     memory: str
     gpu: int
     port: int
+    mount_path: str
 
     # keys
     user_id: int = Field(index=True, foreign_key="user.id")

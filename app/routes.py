@@ -59,6 +59,7 @@ async def create_pod_route(item: Pod, request: Request):
         memory=item.memory,
         port=item.port,
         storage_id=item.storage_id,
+        mount_path=item.mount_path,
         session_key=request.headers.get("Authorization")
     )
     return Response(res, status_code=status)

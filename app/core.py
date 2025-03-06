@@ -70,7 +70,7 @@ def get_pod_info(pod_name):
     ))
 
 
-def create_pod_yaml(pod_name='', storage_id=0, container_image='', storage_name='', cpu=0, memory=0, gpu=0, port=0, env=[]):
+def create_pod_yaml(pod_name='', storage_id=0, container_image='', storage_name='', mount_path='/workspace', cpu=0, memory=0, gpu=0, port=0, env=[]):
     pod_file_name = os.environ['PODS_META_PATH'] + f"/{pod_name}.yaml"
     with open(pod_file_name, "w") as f:
         f.write(f"""
@@ -107,7 +107,7 @@ def create_pod_yaml(pod_name='', storage_id=0, container_image='', storage_name=
                           }
                           {f'''
                           volumeMounts:
-                              - mountPath: "/workspace"
+                              - mountPath: "{mount_path}"
                                 name: pv-storage
                             '''
                           if storage_id != 0

@@ -12,6 +12,7 @@ class Pod(BaseModel):
     gpu: int
     port: int
     storage_id: int
+    mount_path: str
 
 class PodPort(BaseModel):
     port: int
