@@ -509,9 +509,10 @@ async def get_pod_logs_realtime(ws: WebSocket, pod_id=0):
         "microk8s",
         "kubectl",
         "logs",
-        "-n default",
+        pod.name,
+        "-n",
+        "default",
         "-f",
-        pod.name
     ]
 
     process = await asyncio.create_subprocess_exec(
