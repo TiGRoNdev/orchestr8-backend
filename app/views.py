@@ -555,12 +555,11 @@ async def recreate_pod(pod_id=0, session_key=''):
         ))).scalars()
         if pod_envs:
             pod_envs = [pod_env.to_dict() for pod_env in pod_envs]
-        if pod.storage_id != 0:
+        if pod.storage_id:
             storage = (await session.execute(select(Storage).where(
                 Storage.user_id == session_jwt['id'],
                 Storage.id == pod.storage_id
-            ))).scalars()
-            storage = storage[0] if storage else None
+            ))).scalar()
 
         subprocess.run(f"microk8s kubectl delete pod {pod.name} -n default", shell=True)
 
