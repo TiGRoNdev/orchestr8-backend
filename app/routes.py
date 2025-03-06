@@ -67,9 +67,8 @@ async def create_pod_route(item: Pod, request: Request):
 @router.get("/api/pod")
 async def get_pods_route(request: Request):
     status, res = await get_pods(session_key=request.headers.get("Authorization"))
-    pods = [{**(i.to_dict()), "k8s_info": get_pod_info(i.name)} for i in res]
-
     if status == 200:
+        pods = [{**(i.to_dict()), "k8s_info": get_pod_info(i.name)} for i in res]
         return Response(json.dumps(pods), status_code=status)
     else:
         return Response(res, status_code=status)
