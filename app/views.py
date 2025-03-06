@@ -136,7 +136,7 @@ async def create_pod(name='', container_image='', cpu='', memory='', gpu=0, stor
             pod_name=name_s,
             storage_id=storage_id,
             container_image=container_image,
-            storage_name=storage.name,
+            storage_name=storage.name if storage_id != 0 else None,
             cpu=cpu,
             memory=memory,
             gpu=gpu,
