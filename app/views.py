@@ -321,7 +321,7 @@ async def delete_pod(pod_id=0, session_key=''):
             if re.match(regex, i)
         ]
         for pod_file_name in pod_file_names:
-            os.remove(pod_file_name)
+            os.remove(f"{os.environ['PODS_META_PATH']}/{pod_file_name}")
 
         await session.delete(pod)
 
