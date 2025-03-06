@@ -5,6 +5,7 @@ import subprocess
 import os
 import re
 import psutil
+import shutil
 import GPUtil
 
 import asyncio
@@ -563,7 +564,7 @@ async def delete_volume(volume_id=0, session_key=''):
         volume_file_name_pvc = os.environ['VOLUMES_META_PATH'] + f"/{volume.name}-pvc.yaml"
         os.remove(volume_file_name_pv)
         os.remove(volume_file_name_pvc)
-
+        shutil.rmtree(f"/home/tigron/orchestr8/volumes/{volume.name}-pv")
 
         await session.delete(volume)
 
