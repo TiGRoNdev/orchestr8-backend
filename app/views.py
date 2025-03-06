@@ -313,8 +313,8 @@ async def delete_pod(pod_id=0, session_key=''):
         for reserved_port in reserved_ports:
             await session.delete(reserved_port)
             subprocess.run(f"microk8s kubectl delete svc {pod.name}-{reserved_port.port} -n default", shell=True)
-        await session.commit()
 
+    async with get_session() as session:
         regex = re.compile(f"{pod.name}.*")
         pod_file_names = [
             i
