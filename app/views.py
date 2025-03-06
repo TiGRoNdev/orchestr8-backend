@@ -506,7 +506,8 @@ async def get_pod_logs_realtime(ws: WebSocket, pod_id=0):
         pod = [i for i in pods if i.id == pod_id][0]
 
     command = [
-        "microk8s kubectl",
+        "microk8s",
+        "kubectl",
         "logs",
         "-n default",
         "-f",
