@@ -440,6 +440,7 @@ async def delete_volume(volume_id=0, session_key=''):
             return 403, "Invalid credentials."
 
         volumes = (await session.execute(select(Storage).where(Storage.user_id == session_jwt['id']))).scalars()
+        volumes = [i for i in volumes]
         if not volume_id in [i.id for i in volumes]:
             return 403, "Invalid credentials."
 
