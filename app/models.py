@@ -56,7 +56,7 @@ class Pod(SQLModel, table=True):
 
     # keys
     user_id: int = Field(index=True, foreign_key="user.id")
-    storage_id: int = Field(index=True, foreign_key="storage.id")
+    storage_id: int | None = Field(index=True, foreign_key="storage.id")
 
     def to_dict(self):
         return {

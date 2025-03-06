@@ -127,7 +127,7 @@ async def create_pod(name='', container_image='', cpu='', memory='', gpu=0, stor
             gpu=gpu,
             port=port,
             user_id=user.id,
-            storage_id=storage_id
+            storage_id=storage_id if storage_id != 0 else None
         )
         session.add(pod)
         await session.flush()
