@@ -111,8 +111,14 @@ def create_pod_yaml(pod_name='', storage_id=0, container_image='', storage_name=
                           if storage_id != 0
                           else ''
                           }
-                          {'\n'.join([f'''
+                          {
+                          '''
                           env:
+                          '''
+                          if env 
+                          else ''
+                          }
+                          {'\n'.join([f'''
                               - name: {e['name']}
                                 value: '{e['value']}'
                             ''' for e in env])
