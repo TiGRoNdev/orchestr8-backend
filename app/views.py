@@ -559,12 +559,16 @@ async def delete_volume(volume_id=0, session_key=''):
 
         volume = [i for i in volumes if i.id == volume_id][0]
 
-        volume_file_name = os.environ['VOLUMES_META_PATH'] + f"/{volume.name}.yaml"
-        os.remove(volume_file_name)
+        volume_file_name_pv = os.environ['VOLUMES_META_PATH'] + f"/{volume.name}-pv.yaml"
+        volume_file_name_pvc = os.environ['VOLUMES_META_PATH'] + f"/{volume.name}.yaml"
+        os.remove(volume_file_name_pv)
+        os.remove(volume_file_name_pvc)
+
 
         await session.delete(volume)
 
         subprocess.run(f"microk8s kubectl delete pvc {volume.name}", shell=True)
+        subprocess.run(f"microk8s kubectl delete pv {volume.name}-pv", shell=True)
 
     return 200, "Done."
 
