@@ -13,7 +13,7 @@ six
 sqlalchemy[asyncio]
 aiohttp
 tenacity
-uvicorn
+uvicorn[standard]
 sqlmodel
 alembic
 gunicorn
