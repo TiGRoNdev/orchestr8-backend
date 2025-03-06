@@ -77,7 +77,9 @@ def create_pod_yaml(pod_name='', storage_id=0, container_image='', storage_name=
             apiVersion: v1
             kind: Pod
             metadata:
-                name: {pod_name}
+                name: {pod_name}         
+                labels:
+                  app.kubernetes.io/name: {pod_name}
             spec:{f'''
                   volumes:
                     - name: pv-storage
