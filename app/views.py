@@ -394,6 +394,7 @@ async def add_exposed_port_to_pod(pod_id=0, port=0, protocol='TCP', session_key=
             metadata:
               name: {pod.name}-{reserved_port.port}
             spec:
+              type: NodePort
               ports:
                 - protocol: {protocol}
                   port: {reserved_port.port}
