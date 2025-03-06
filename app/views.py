@@ -553,8 +553,11 @@ async def recreate_pod(pod_id=0, session_key=''):
             PodEnv.user_id == session_jwt['id'],
             PodEnv.pod_id == pod.id
         ))).scalars()
+
         if pod_envs:
             pod_envs = [pod_env.to_dict() for pod_env in pod_envs]
+
+        storage = None
         if pod.storage_id:
             storage = (await session.execute(select(Storage).where(
                 Storage.user_id == session_jwt['id'],
@@ -565,9 +568,9 @@ async def recreate_pod(pod_id=0, session_key=''):
 
         pod_file_name = create_pod_yaml(
             pod_name=pod.name,
-            storage_id=storage.id,
+            storage_id=storage.id if storage else 0,
             container_image=pod.container_image,
-            storage_name=storage.name,
+            storage_name=storage.name if storage else '',
             cpu=pod.cpu,
             memory=pod.memory,
             gpu=pod.gpu,
