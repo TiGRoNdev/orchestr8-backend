@@ -300,6 +300,7 @@ async def delete_pod(pod_id=0, session_key=''):
             return 403, "Invalid credentials."
 
         pods = (await session.execute(select(Pod).where(Pod.user_id == session_jwt['id']))).scalars()
+        pods = [i for i in pods]
         if not pod_id in [i.id for i in pods]:
             return 403, "Invalid credentials."
 
@@ -337,6 +338,7 @@ async def get_pod_ports(pod_id=0, session_key=''):
             return 403, "Invalid credentials."
 
         pods = (await session.execute(select(Pod).where(Pod.user_id == session_jwt['id']))).scalars()
+        pods = [i for i in pods]
         if not pod_id in [i.id for i in pods]:
             return 403, "Invalid credentials."
 
@@ -358,6 +360,7 @@ async def add_exposed_port_to_pod(pod_id=0, port=0, session_key=''):
             return 403, "Invalid credentials."
 
         pods = (await session.execute(select(Pod).where(Pod.user_id == session_jwt['id']))).scalars()
+        pods = [i for i in pods]
         if not pod_id in [i.id for i in pods]:
             return 403, "Invalid credentials."
 
@@ -447,6 +450,7 @@ async def get_pod_envs(pod_id=0, session_key=''):
             return 403, "Invalid credentials."
 
         pods = (await session.execute(select(Pod).where(Pod.user_id == session_jwt['id']))).scalars()
+        pods = [i for i in pods]
         if not pod_id in [i.id for i in pods]:
             return 403, "Invalid credentials."
 
@@ -468,6 +472,7 @@ async def add_pod_env(pod_id=0, name='', value='', session_key=''):
             return 403, "Invalid credentials."
 
         pods = (await session.execute(select(Pod).where(Pod.user_id == session_jwt['id']))).scalars()
+        pods = [i for i in pods]
         if not pod_id in [i.id for i in pods]:
             return 403, "Invalid credentials."
 
@@ -539,6 +544,7 @@ async def recreate_pod(pod_id=0, session_key=''):
             return 403, "Invalid credentials."
 
         pods = (await session.execute(select(Pod).where(Pod.user_id == session_jwt['id']))).scalars()
+        pods = [i for i in pods]
         if not pod_id in [i.id for i in pods]:
             return 403, "Invalid credentials."
 
