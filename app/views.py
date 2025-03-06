@@ -560,7 +560,7 @@ async def delete_volume(volume_id=0, session_key=''):
         volume = [i for i in volumes if i.id == volume_id][0]
 
         volume_file_name_pv = os.environ['VOLUMES_META_PATH'] + f"/{volume.name}-pv.yaml"
-        volume_file_name_pvc = os.environ['VOLUMES_META_PATH'] + f"/{volume.name}.yaml"
+        volume_file_name_pvc = os.environ['VOLUMES_META_PATH'] + f"/{volume.name}-pvc.yaml"
         os.remove(volume_file_name_pv)
         os.remove(volume_file_name_pvc)
 
