@@ -86,7 +86,8 @@ class ReservedPort(SQLModel, table=True):
         return {
             'id': self.id,
             'port': self.port,
-            'external_port': self.external_port
+            'external_port': self.external_port,
+            'protocol': self.protocol
         }
 
 
