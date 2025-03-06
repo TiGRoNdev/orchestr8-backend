@@ -71,8 +71,28 @@ async def create_volume(name='', capacity='', session_key=''):
         session.add(storage)
         await session.flush()
 
-        storage_file_name = os.environ['VOLUMES_META_PATH'] + f"/{name_s}.yaml"
-        with open(storage_file_name, "w") as f:
+        storage_file_name_pv = os.environ['VOLUMES_META_PATH'] + f"/{name_s}-pv.yaml"
+        with open(storage_file_name_pv, "w") as f:
+            f.write(f"""
+                apiVersion: v1
+                kind: PersistentVolume
+                metadata:
+                  name: {name_s}-pv
+                  labels:
+                    type: local
+                spec:
+                  storageClassName: manual
+                  capacity:
+                    storage: {capacity}
+                  accessModes:
+                    - ReadWriteOncePod
+                  hostPath:
+                    path: "/home/tigron/orchestr8/volumes/{name_s}-pv"
+                
+            """)
+
+        storage_file_name_pvc = os.environ['VOLUMES_META_PATH'] + f"/{name_s}-pvc.yaml"
+        with open(storage_file_name_pvc, "w") as f:
             f.write(f"""
                 apiVersion: v1
                 kind: PersistentVolumeClaim
@@ -87,7 +107,8 @@ async def create_volume(name='', capacity='', session_key=''):
                             storage: {capacity}
             """)
 
-        subprocess.run(f"microk8s kubectl apply -f {storage_file_name}", shell=True)
+        subprocess.run(f"microk8s kubectl apply -f {storage_file_name_pv}", shell=True)
+        subprocess.run(f"microk8s kubectl apply -f {storage_file_name_pvc}", shell=True)
 
     return 200, "OK."
 

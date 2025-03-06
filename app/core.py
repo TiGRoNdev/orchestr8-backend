@@ -82,7 +82,7 @@ def create_pod_yaml(pod_name='', storage_id=0, container_image='', storage_name=
                   app.kubernetes.io/name: {pod_name}
             spec:{f'''
                   volumes:
-                    - name: pv-storage
+                    - name: {storage_name}-pv
                       persistentVolumeClaim:
                           claimName: {storage_name}
                   '''
@@ -108,7 +108,7 @@ def create_pod_yaml(pod_name='', storage_id=0, container_image='', storage_name=
                           {f'''
                           volumeMounts:
                               - mountPath: "{mount_path}"
-                                name: pv-storage
+                                name: {storage_name}-pv
                             '''
                           if storage_id != 0
                           else ''
