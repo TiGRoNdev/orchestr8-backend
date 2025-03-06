@@ -506,7 +506,7 @@ async def delete_pod_env(pod_id=0, env_id=0, session_key=''):
         if not env_id in [i.id for i in envs]:
             return 403, "Invalid credentials."
 
-        env = [i for i in envs if i.id == envs][0]
+        env = [i for i in envs if i.id == env_id][0]
         await session.delete(env)
 
     return 200, "Done."
