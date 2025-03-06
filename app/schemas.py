@@ -16,6 +16,7 @@ class Pod(BaseModel):
 class PodPort(BaseModel):
     port: int
     pod_id: int
+    protocol: str
 
 class PodEnv(BaseModel):
     pod_id: int

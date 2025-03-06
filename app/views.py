@@ -352,7 +352,7 @@ async def get_pod_ports(pod_id=0, session_key=''):
     return 200, pod_ports
 
 
-async def add_exposed_port_to_pod(pod_id=0, port=0, session_key=''):
+async def add_exposed_port_to_pod(pod_id=0, port=0, protocol='TCP', session_key=''):
     async with get_session() as session:
         session_jwt = jwt.decode(session_key, os.environ['SECRET_KEY'], algorithms=["HS256"])
         user = (await session.execute(select(User).where(User.id == session_jwt['id']))).scalar()
@@ -381,6 +381,7 @@ async def add_exposed_port_to_pod(pod_id=0, port=0, session_key=''):
         reserved_port = ReservedPort(
             port=port,
             external_port=port_to_reserve,
+            protocol=protocol,
             user_id=user.id,
             pod_id=pod.id
         )
@@ -393,13 +394,13 @@ async def add_exposed_port_to_pod(pod_id=0, port=0, session_key=''):
             metadata:
               name: {pod.name}-{reserved_port.port}
             spec:
-              type: NodePort
               ports:
-                - port: {reserved_port.port}
+                - protocol: {protocol}
+                  port: {reserved_port.port}
                   targetPort: {reserved_port.port}
                   nodePort: {reserved_port.external_port}
               selector:
-                app: {pod.name}
+                app.kubernetes.io/name: {pod.name}
         """
 
         pod_file_name = os.environ['PODS_META_PATH'] + f"/{pod.name}-{reserved_port.port}.yaml"

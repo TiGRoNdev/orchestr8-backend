@@ -91,7 +91,7 @@ async def get_pod_ports_route(request: Request, pod_id: int):
 
 @router.post("/api/pod/port")
 async def add_port_route(item: PodPort, request: Request):
-    status, res = await add_exposed_port_to_pod(pod_id=item.pod_id, port=item.port, session_key=request.headers.get("Authorization"))
+    status, res = await add_exposed_port_to_pod(pod_id=item.pod_id, port=item.port, protocol=item.protocol, session_key=request.headers.get("Authorization"))
     return Response(res, status_code=status)
 
 

@@ -76,6 +76,7 @@ class ReservedPort(SQLModel, table=True):
     id: int | None = Field(None, primary_key=True)
     port: int
     external_port: int
+    protocol: str | None = Field(default="TCP")
 
     # keys
     user_id: int = Field(index=True, foreign_key="user.id")
