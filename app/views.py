@@ -430,7 +430,7 @@ async def delete_exposed_port(pod_id=0, port_id=0, session_key=''):
         if not port_id in [i.id for i in reserved_ports]:
             return 403, "Invalid credentials."
 
-        reserved_port = [i for i in reserved_ports if i.id == reserved_ports][0]
+        reserved_port = [i for i in reserved_ports if i.id == port_id][0]
 
         reserved_port_file_name = os.environ['PODS_META_PATH'] + f"/{pod.name}-{reserved_port.port}.yaml"
         os.remove(reserved_port_file_name)
