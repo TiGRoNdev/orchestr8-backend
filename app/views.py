@@ -374,7 +374,7 @@ async def add_exposed_port_to_pod(pod_id=0, port=0, session_key=''):
 
         port_to_reserve = (await session.execute(select(func.max(ReservedPort.external_port)))).scalar()
         if not port_to_reserve:
-            port_to_reserve = 20001
+            port_to_reserve = 30001
         else:
             port_to_reserve += 1
 
