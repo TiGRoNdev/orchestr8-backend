@@ -99,13 +99,6 @@ def create_pod_yaml(pod_name='', storage_id=0, container_image='', storage_name=
                           ports:
                           - containerPort: {port}
                           {f'''
-                          nodeSelector:
-                              hardware-type: gpu
-                            '''
-                          if gpu > 0
-                          else ''
-                          }
-                          {f'''
                           volumeMounts:
                               - mountPath: "{mount_path}"
                                 name: {storage_name}-pv
